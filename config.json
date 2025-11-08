@@ -17,8 +17,8 @@
     "https://picsum.photos/1920/1080?random="
   ],
   "posts_per_day": 25,
-  "min_interval_seconds": 45,
-  "max_interval_seconds": 3600,
+  "min_interval_seconds": 60,
+  "max_interval_seconds": 600,
   "best_hours": [8, 9, 10, 12, 14, 16, 18, 20, 22],
   "hashtag_pool": [
     "#funny", "#meme", "#memes", "#lol", "#humor", "#comedy",

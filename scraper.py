@@ -53,21 +53,13 @@ class ContentScraper:
         return any(d in host for d in self.config['whitelist_domains'])
     
     def get_random_content(self):
-        """Get random content from local cache or scrape new"""
+        """Get random content - always use fresh API images"""
         
-        # Try local memes first
-        local_memes = list(self.memes_dir.glob('*.jpg')) + list(self.memes_dir.glob('*.png'))
-        if local_memes and random.random() < 0.3:
-            return str(random.choice(local_memes)), 'local'
-        
-        # Scrape fresh memes
-        memes = self.scrape_reddit_memes(5)
-        if memes:
-            return memes[0]['url'], 'reddit'
-        
-        # Fallback to image API with unique random number
+        # Always use image API with unique random number
         img_source = random.choice(self.config['image_sources'])
         if '?' in img_source and img_source.endswith('='):
             img_source += str(random.randint(1, 999999))
+        else:
+            img_source = f"https://picsum.photos/1920/1080?random={random.randint(1, 999999)}"
         
         return img_source, 'api'
