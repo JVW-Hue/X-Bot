@@ -14,7 +14,6 @@ if sys.platform == 'win32':
 
 load_dotenv()
 
-# Keep-alive for Render free tier
 def keep_alive():
     while True:
         time.sleep(600)
@@ -56,7 +55,7 @@ class JVWBot:
             tweet_id TEXT,
             content_hash TEXT UNIQUE,
             source_url TEXT,
-            source_type TEXT,
+            content_type TEXT,
             caption TEXT,
             caption_type TEXT,
             hashtags TEXT,
@@ -75,7 +74,6 @@ class JVWBot:
         if not self.config.get('learning_enabled'):
             return
         
-        # Learn best hours
         rows = self.db.execute('''
             SELECT posted_hour, AVG(engagement_rate) as avg_eng
             FROM posts WHERE posted_at > datetime('now', '-7 days') AND impressions > 0
@@ -86,19 +84,14 @@ class JVWBot:
             self.config['best_hours'] = [r[0] for r in rows]
             print(f"📊 Learned best hours: {self.config['best_hours']}")
         
-        # Learn best content type
         rows = self.db.execute('''
-            SELECT source_type, AVG(engagement_rate) as avg_eng, COUNT(*) as cnt
+            SELECT content_type, AVG(engagement_rate) as avg_eng, COUNT(*) as cnt
             FROM posts WHERE posted_at > datetime('now', '-7 days') AND impressions > 0
-            GROUP BY source_type ORDER BY avg_eng DESC
+            GROUP BY content_type ORDER BY avg_eng DESC
         ''').fetchall()
         
         if rows:
             print(f"📊 Best content: {rows[0][0]} ({rows[0][1]:.2%} engagement)")
-    
-    def _is_duplicate(self, content_hash):
-        # Disable duplicate check for now to ensure posting
-        return False
     
     def _download_optimize(self, url):
         content_hash = hashlib.sha256(url.encode()).hexdigest()[:16]
@@ -107,80 +100,41 @@ class JVWBot:
         if cache_path.exists():
             return str(cache_path), content_hash
         
-        # Handle local files
-        if Path(url).exists():
-            img = Image.open(url).convert('RGB')
-            content_hash = hashlib.sha256(open(url, 'rb').read()).hexdigest()[:16]
-            cache_path = self.cache_dir / f"{content_hash}.jpg"
-        else:
-            r = requests.get(url, timeout=15, stream=True, headers={'User-Agent': 'Mozilla/5.0'})
-            r.raise_for_status()
-            img = Image.open(BytesIO(r.content)).convert('RGB')
-        
+        r = requests.get(url, timeout=15, stream=True, headers={'User-Agent': 'Mozilla/5.0'})
+        r.raise_for_status()
+        img = Image.open(BytesIO(r.content)).convert('RGB')
         img.thumbnail((2048, 2048), Image.Resampling.LANCZOS)
         img.save(cache_path, 'JPEG', quality=85, optimize=True)
         
         return str(cache_path), content_hash
     
-    def _generate_caption(self):
+    def _generate_caption(self, content_type, extra_text=None):
         templates = {
-            'cta': [
-                "Double tap if you agree 💯",
-                "Tag someone who needs this 👇",
-                "RT if this resonates 🔄",
-                "Send this to your bestie 💌",
-                "Share if you relate 🤝"
-            ],
-            'question': [
-                "Thoughts? 🤔",
-                "Facts or facts? 💭",
-                "Who else? 🙋",
-                "Am I right? 🎯",
-                "Agree or nah? 🤷"
-            ],
-            'statement': [
-                "This hits different ✨",
-                "Your daily reminder 📌",
-                "Needed to see this today 🎯",
-                "Big mood 😌",
-                "The energy we need 🔥"
-            ],
-            'save': [
-                "Save this for later 💾",
-                "Screenshot this 📸",
-                "Keep this one 🔖",
-                "Don't scroll past this 🛑",
-                "You'll need this 💡"
-            ],
-            'funny': [
-                "No cap 😂",
-                "This is too real 💀",
-                "Why is this so accurate 🤣",
-                "I felt that 😭",
-                "Not me doing this 🙈"
-            ]
+            'meme': ["Double tap if you agree 💯", "Tag someone 👇", "RT if this is you 🔄", "Facts or facts? 💭", "This hits different ✨"],
+            'video': ["Watch this 🎥", "This is powerful 💪", "Save this for later 💾", "You need to see this 👀", "Motivation incoming 🚀"],
+            'quote': ["Daily reminder 📌", "Words to live by ✨", "Think about this 💭", "Save this 🔖", "Needed this today 🎯"]
         }
         
-        caption_type = random.choice(list(templates.keys()))
-        caption = random.choice(templates[caption_type])
+        caption = random.choice(templates.get(content_type, templates['meme']))
         
-        # Add extra emoji sometimes
-        emojis = ['🔥', '💪', '⚡', '🚀', '💡', '🎨', '🌟', '✨', '👀', '💯']
+        if extra_text:
+            caption = extra_text[:200]
+        
+        emojis = ['🔥', '💪', '⚡', '🚀', '💡', '✨', '👀', '💯']
         if random.random() < 0.3:
             caption += ' ' + random.choice(emojis)
         
-        # Add hashtags
         num_tags = random.randint(self.config['min_hashtags'], self.config['max_hashtags'])
-        tags = random.sample(self.config['hashtag_pool'], num_tags)
+        tags = random.sample(self.config['hashtags'].get(content_type, self.config['hashtags']['general']), min(num_tags, len(self.config['hashtags'].get(content_type, []))))
+        tags += random.sample(self.config['hashtags']['general'], max(0, num_tags - len(tags)))
         
-        # Add brand tag 40% of time
         if random.random() < 0.4:
             tags.append(random.choice(self.config['brand_tags']))
         
-        hashtags = ' '.join(tags)
+        hashtags = ' '.join(tags[:5])
         caption += '\n\n' + hashtags
         
-        return caption, caption_type, hashtags
+        return caption, hashtags
     
     def _rate_limit_check(self):
         now = time.time()
@@ -190,34 +144,33 @@ class JVWBot:
     
     def post_content(self):
         try:
-            # Get content
-            content_url, source_type = self.scraper.get_random_content()
-            print(f"📥 Got content from: {source_type}")
+            content_url, content_type, extra_text = self.scraper.get_random_content()
+            print(f"📥 Got {content_type} content")
             
-            img_path, content_hash = self._download_optimize(content_url)
-            
-            if self._is_duplicate(content_hash):
-                print(f"⏭️ Skip duplicate")
-                return False
-            
-            media = self.api_v1.media_upload(img_path)
-            caption, caption_type, hashtags = self._generate_caption()
-            
-            self._rate_limit_check()
-            
-            response = self.client.create_tweet(text=caption, media_ids=[media.media_id_string])
-            tweet_id = response.data['id']
+            if content_type == 'quote':
+                caption, hashtags = self._generate_caption(content_type, extra_text)
+                self._rate_limit_check()
+                response = self.client.create_tweet(text=caption)
+                tweet_id = response.data['id']
+                content_hash = hashlib.sha256(caption.encode()).hexdigest()[:16]
+            else:
+                img_path, content_hash = self._download_optimize(content_url)
+                media = self.api_v1.media_upload(img_path)
+                caption, hashtags = self._generate_caption(content_type, extra_text)
+                self._rate_limit_check()
+                response = self.client.create_tweet(text=caption, media_ids=[media.media_id_string])
+                tweet_id = response.data['id']
             
             posted_hour = datetime.now().hour
             self.db.execute('''INSERT INTO posts 
-                (tweet_id, content_hash, source_url, source_type, caption, caption_type, hashtags, posted_at, posted_hour)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)''',
-                (tweet_id, content_hash, content_url, source_type, caption, caption_type, hashtags, datetime.now().isoformat(), posted_hour))
+                (tweet_id, content_hash, source_url, content_type, caption, hashtags, posted_at, posted_hour)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?)''',
+                (tweet_id, content_hash, content_url or 'quote', content_type, caption, hashtags, datetime.now().isoformat(), posted_hour))
             self.db.commit()
             
             self.last_post_time = time.time()
             self.post_count += 1
-            print(f"✅ Posted #{self.post_count}: {caption[:40]}... | ID: {tweet_id}")
+            print(f"✅ Posted {content_type} #{self.post_count}: {caption[:40]}... | ID: {tweet_id}")
             return True
             
         except Exception as e:
@@ -234,7 +187,6 @@ class JVWBot:
             try:
                 current_hour = datetime.now().hour
                 
-                # Smart scheduling
                 if current_hour in self.config['best_hours']:
                     interval = random.randint(self.config['min_interval_seconds'], self.config['max_interval_seconds'])
                     print(f"⚡ PEAK HOUR {current_hour} - High activity mode")
@@ -247,7 +199,6 @@ class JVWBot:
                 
                 self.post_content()
                 
-                # Learn every 10 posts
                 if self.post_count % 10 == 0 and self.post_count > 0:
                     print("\n📊 LEARNING FROM ANALYTICS...")
                     self._learn_from_analytics()
