@@ -97,7 +97,7 @@ class JVWBot:
             print(f"📊 Best content: {rows[0][0]} ({rows[0][1]:.2%} engagement)")
     
     def _is_duplicate(self, content_hash):
-        cutoff = datetime.now() - timedelta(days=90)
+        cutoff = (datetime.now() - timedelta(days=90)).isoformat()
         cur = self.db.execute('SELECT 1 FROM posts WHERE content_hash=? AND posted_at>?', 
                               (content_hash, cutoff))
         return cur.fetchone() is not None
@@ -214,7 +214,7 @@ class JVWBot:
             self.db.execute('''INSERT INTO posts 
                 (tweet_id, content_hash, source_url, source_type, caption, caption_type, hashtags, posted_at, posted_hour)
                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)''',
-                (tweet_id, content_hash, content_url, source_type, caption, caption_type, hashtags, datetime.now(), posted_hour))
+                (tweet_id, content_hash, content_url, source_type, caption, caption_type, hashtags, datetime.now().isoformat(), posted_hour))
             self.db.commit()
             
             self.last_post_time = time.time()
