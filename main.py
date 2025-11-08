@@ -149,8 +149,11 @@ class JVWBot:
     def _rate_limit_check(self):
         now = time.time()
         elapsed = now - self.last_post_time
-        if elapsed < self.config['min_interval_seconds']:
-            time.sleep(self.config['min_interval_seconds'] - elapsed)
+        min_wait = 300  # Force 5 min minimum between posts
+        if elapsed < min_wait:
+            wait_time = min_wait - elapsed
+            print(f"⏳ Rate limit protection: waiting {wait_time:.0f}s")
+            time.sleep(wait_time)
     
     def post_content(self):
         max_attempts = 5
