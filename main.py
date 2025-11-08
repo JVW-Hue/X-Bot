@@ -22,7 +22,7 @@ def keep_alive():
 
 threading.Thread(target=keep_alive, daemon=True).start()
 
-class JWVBot:
+class JVWBot:
     def __init__(self):
         self.config = json.load(open('config.json'))
         self.cache_dir = Path('cache')
@@ -227,7 +227,7 @@ class JWVBot:
             return False
     
     def run_forever(self):
-        print("🚀 JWV BOT STARTING - 24/7 VIRAL GROWTH MODE")
+        print("🚀 JVW BOT STARTING - 24/7 VIRAL GROWTH MODE")
         print(f"🎯 Target: {self.config['posts_per_day']} posts/day")
         print(f"📊 Learning: {'ON' if self.config['learning_enabled'] else 'OFF'}")
         print(f"🔥 Best hours: {self.config['best_hours']}\n")
@@ -265,5 +265,5 @@ class JWVBot:
                 time.sleep(300)
 
 if __name__ == '__main__':
-    bot = JWVBot()
+    bot = JVWBot()
     bot.run_forever()
