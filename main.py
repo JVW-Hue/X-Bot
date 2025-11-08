@@ -236,10 +236,10 @@ class JVWBot:
                 
                 # Smart scheduling
                 if current_hour in self.config['best_hours']:
-                    interval = random.randint(self.config['min_interval_seconds'], 1200)
+                    interval = random.randint(self.config['min_interval_seconds'], self.config['max_interval_seconds'])
                     print(f"⚡ PEAK HOUR {current_hour} - High activity mode")
                 else:
-                    interval = random.randint(1200, self.config['max_interval_seconds'])
+                    interval = random.randint(self.config['min_interval_seconds'], self.config['max_interval_seconds'])
                     if random.random() < 0.25:
                         print(f"💤 Off-peak hour {current_hour} - Skipping")
                         time.sleep(interval)
