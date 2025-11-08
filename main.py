@@ -208,7 +208,9 @@ class JVWBot:
         print("🚀 JVW BOT STARTING - 24/7 VIRAL GROWTH MODE")
         print(f"🎯 Target: {self.config['posts_per_day']} posts/day")
         print(f"📊 Learning: {'ON' if self.config['learning_enabled'] else 'OFF'}")
-        print(f"🔥 Best hours: {self.config['best_hours']}\n")
+        print(f"🔥 Best hours: {self.config['best_hours']}")
+        print("\n⏳ Waiting 15 min for rate limit cooldown...\n")
+        time.sleep(900)  # Wait 15 min on startup
         
         while True:
             try:
