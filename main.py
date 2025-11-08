@@ -8,6 +8,7 @@ from io import BytesIO
 import tweepy
 from dotenv import load_dotenv
 from scraper import ContentScraper
+from trends import TrendDetector
 
 if sys.platform == 'win32':
     sys.stdout.reconfigure(encoding='utf-8')
@@ -46,6 +47,7 @@ class JVWBot:
         
         self.post_count = 0
         self.last_post_time = 0
+        self.trend_detector = TrendDetector()
         self._learn_from_analytics()
         
     def _init_db(self):
@@ -93,16 +95,24 @@ class JVWBot:
         if rows:
             print(f"📊 Best content: {rows[0][0]} ({rows[0][1]:.2%} engagement)")
     
+    def _is_duplicate(self, content_hash):
+        """Check if content was already posted (EVER)"""
+        cur = self.db.execute('SELECT 1 FROM posts WHERE content_hash=?', (content_hash,))
+        return cur.fetchone() is not None
+    
     def _download_optimize(self, url):
-        content_hash = hashlib.sha256(url.encode()).hexdigest()[:16]
+        r = requests.get(url, timeout=15, stream=True, headers={'User-Agent': 'Mozilla/5.0'})
+        r.raise_for_status()
+        
+        # Hash actual image content (not URL)
+        img_data = r.content
+        content_hash = hashlib.sha256(img_data).hexdigest()[:16]
         cache_path = self.cache_dir / f"{content_hash}.jpg"
         
         if cache_path.exists():
             return str(cache_path), content_hash
         
-        r = requests.get(url, timeout=15, stream=True, headers={'User-Agent': 'Mozilla/5.0'})
-        r.raise_for_status()
-        img = Image.open(BytesIO(r.content)).convert('RGB')
+        img = Image.open(BytesIO(img_data)).convert('RGB')
         img.thumbnail((2048, 2048), Image.Resampling.LANCZOS)
         img.save(cache_path, 'JPEG', quality=85, optimize=True)
         
@@ -124,9 +134,9 @@ class JVWBot:
         if random.random() < 0.3:
             caption += ' ' + random.choice(emojis)
         
-        num_tags = random.randint(self.config['min_hashtags'], self.config['max_hashtags'])
-        tags = random.sample(self.config['hashtags'].get(content_type, self.config['hashtags']['general']), min(num_tags, len(self.config['hashtags'].get(content_type, []))))
-        tags += random.sample(self.config['hashtags']['general'], max(0, num_tags - len(tags)))
+        # Use smart trending hashtags
+        base_tags = self.config['hashtags'].get(content_type, self.config['hashtags']['general'])
+        tags = self.trend_detector.get_smart_hashtags(content_type, base_tags)
         
         if random.random() < 0.4:
             tags.append(random.choice(self.config['brand_tags']))
@@ -143,39 +153,53 @@ class JVWBot:
             time.sleep(self.config['min_interval_seconds'] - elapsed)
     
     def post_content(self):
-        try:
-            content_url, content_type, extra_text = self.scraper.get_random_content()
-            print(f"📥 Got {content_type} content")
+        max_attempts = 5
+        for attempt in range(max_attempts):
+            try:
+                content_url, content_type, extra_text = self.scraper.get_random_content()
+                
+                if content_type == 'quote':
+                    content_hash = hashlib.sha256(extra_text.encode()).hexdigest()[:16]
+                    if self._is_duplicate(content_hash):
+                        print(f"⏭️ Skip duplicate quote (attempt {attempt+1}/{max_attempts})")
+                        continue
+                    
+                    caption, hashtags = self._generate_caption(content_type, extra_text)
+                    self._rate_limit_check()
+                    response = self.client.create_tweet(text=caption)
+                    tweet_id = response.data['id']
+                else:
+                    img_path, content_hash = self._download_optimize(content_url)
+                    if self._is_duplicate(content_hash):
+                        print(f"⏭️ Skip duplicate {content_type} (attempt {attempt+1}/{max_attempts})")
+                        continue
+                    
+                    media = self.api_v1.media_upload(img_path)
+                    caption, hashtags = self._generate_caption(content_type, extra_text)
+                    self._rate_limit_check()
+                    response = self.client.create_tweet(text=caption, media_ids=[media.media_id_string])
+                    tweet_id = response.data['id']
             
-            if content_type == 'quote':
-                caption, hashtags = self._generate_caption(content_type, extra_text)
-                self._rate_limit_check()
-                response = self.client.create_tweet(text=caption)
-                tweet_id = response.data['id']
-                content_hash = hashlib.sha256(caption.encode()).hexdigest()[:16]
-            else:
-                img_path, content_hash = self._download_optimize(content_url)
-                media = self.api_v1.media_upload(img_path)
-                caption, hashtags = self._generate_caption(content_type, extra_text)
-                self._rate_limit_check()
-                response = self.client.create_tweet(text=caption, media_ids=[media.media_id_string])
-                tweet_id = response.data['id']
-            
-            posted_hour = datetime.now().hour
-            self.db.execute('''INSERT INTO posts 
-                (tweet_id, content_hash, source_url, content_type, caption, hashtags, posted_at, posted_hour)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?)''',
-                (tweet_id, content_hash, content_url or 'quote', content_type, caption, hashtags, datetime.now().isoformat(), posted_hour))
-            self.db.commit()
-            
-            self.last_post_time = time.time()
-            self.post_count += 1
-            print(f"✅ Posted {content_type} #{self.post_count}: {caption[:40]}... | ID: {tweet_id}")
-            return True
-            
-        except Exception as e:
-            print(f"❌ Post failed: {e}")
-            return False
+                posted_hour = datetime.now().hour
+                self.db.execute('''INSERT INTO posts 
+                    (tweet_id, content_hash, source_url, content_type, caption, hashtags, posted_at, posted_hour)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?)''',
+                    (tweet_id, content_hash, content_url or 'quote', content_type, caption, hashtags, datetime.now().isoformat(), posted_hour))
+                self.db.commit()
+                
+                self.last_post_time = time.time()
+                self.post_count += 1
+                print(f"✅ Posted {content_type} #{self.post_count}: {caption[:40]}... | ID: {tweet_id}")
+                return True
+                
+            except Exception as e:
+                print(f"❌ Post attempt {attempt+1} failed: {e}")
+                if attempt == max_attempts - 1:
+                    return False
+                time.sleep(5)
+        
+        print(f"❌ Failed to find unique content after {max_attempts} attempts")
+        return False
     
     def run_forever(self):
         print("🚀 JVW BOT STARTING - 24/7 VIRAL GROWTH MODE")
