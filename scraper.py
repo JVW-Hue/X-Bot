@@ -57,7 +57,7 @@ class ContentScraper:
         
         # Try local memes first
         local_memes = list(self.memes_dir.glob('*.jpg')) + list(self.memes_dir.glob('*.png'))
-        if local_memes and random.random() < 0.5:
+        if local_memes and random.random() < 0.3:
             return str(random.choice(local_memes)), 'local'
         
         # Scrape fresh memes
@@ -65,9 +65,9 @@ class ContentScraper:
         if memes:
             return memes[0]['url'], 'reddit'
         
-        # Fallback to image API
+        # Fallback to image API with unique random number
         img_source = random.choice(self.config['image_sources'])
         if '?' in img_source and img_source.endswith('='):
-            img_source += str(random.randint(1, 1000))
+            img_source += str(random.randint(1, 999999))
         
         return img_source, 'api'

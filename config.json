@@ -14,8 +14,7 @@
     "https://www.reddit.com/r/memes.json"
   ],
   "image_sources": [
-    "https://picsum.photos/1920/1080?random=",
-    "https://source.unsplash.com/random/1920x1080/?motivation"
+    "https://picsum.photos/1920/1080?random="
   ],
   "posts_per_day": 25,
   "min_interval_seconds": 45,
