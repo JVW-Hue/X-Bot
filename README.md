@@ -1,4 +1,4 @@
-# JWV X Bot - 24/7 Viral Growth Automation
+# JVW X Bot - 24/7 Viral Growth Automation
 
 Automated X (Twitter) bot that grows your account through smart posting, meme scraping, and analytics-driven optimization.
 
@@ -55,3 +55,7 @@ Check posts: https://x.com/All_You_Need12
 ## 🔄 Goal
 
 Grow followers and engagement consistently through data-driven automation!
+
+---
+
+**Built by JVW Automations**

@@ -51,7 +51,7 @@ class Analytics:
     
     def show_report(self):
         print("="*70)
-        print("🚀 JWV VIRAL GROWTH REPORT")
+        print("🚀 JVW VIRAL GROWTH REPORT")
         print("="*70)
         
         # Overall

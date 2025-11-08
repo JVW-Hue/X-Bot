@@ -1,4 +1,4 @@
-# 🚀 Deploy JWV Bot to Fly.io (FREE)
+# 🚀 Deploy JVW Bot to Fly.io (FREE)
 
 ## Step 1: Install Fly CLI
 

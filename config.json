@@ -29,7 +29,7 @@
     "#viral", "#trending", "#explore", "#fyp", "#inspo", "#vibes",
     "#photography", "#art", "#aesthetic", "#mood", "#energy"
   ],
-  "brand_tags": ["#JWV", "#JWVAutomations"],
+  "brand_tags": ["#JVW", "#JVWAutomations"],
   "min_hashtags": 3,
   "max_hashtags": 5,
   "learning_enabled": true,
