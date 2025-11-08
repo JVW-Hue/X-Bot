@@ -1,0 +1,37 @@
+{
+  "whitelist_domains": [
+    "unsplash.com", "images.unsplash.com", "source.unsplash.com",
+    "i.imgur.com", "imgur.com",
+    "pexels.com", "images.pexels.com",
+    "pixabay.com", "cdn.pixabay.com",
+    "picsum.photos",
+    "giphy.com", "media.giphy.com",
+    "i.redd.it"
+  ],
+  "meme_sources": [
+    "https://www.reddit.com/r/wholesomememes.json",
+    "https://www.reddit.com/r/GetMotivated.json",
+    "https://www.reddit.com/r/memes.json"
+  ],
+  "image_sources": [
+    "https://picsum.photos/1920/1080?random=",
+    "https://source.unsplash.com/random/1920x1080/?motivation"
+  ],
+  "posts_per_day": 25,
+  "min_interval_seconds": 45,
+  "max_interval_seconds": 3600,
+  "best_hours": [8, 9, 10, 12, 14, 16, 18, 20, 22],
+  "hashtag_pool": [
+    "#funny", "#meme", "#memes", "#lol", "#humor", "#comedy",
+    "#tech", "#technology", "#AI", "#automation", "#innovation", "#coding",
+    "#motivation", "#inspiration", "#mindset", "#success", "#goals", "#hustle",
+    "#lifehacks", "#tips", "#productivity", "#lifestyle", "#daily", "#growth",
+    "#viral", "#trending", "#explore", "#fyp", "#inspo", "#vibes",
+    "#photography", "#art", "#aesthetic", "#mood", "#energy"
+  ],
+  "brand_tags": ["#JWV", "#JWVAutomations"],
+  "min_hashtags": 3,
+  "max_hashtags": 5,
+  "learning_enabled": true,
+  "trend_check_enabled": true
+}
